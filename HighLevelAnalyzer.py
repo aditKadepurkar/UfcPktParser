@@ -5,16 +5,16 @@ from saleae.analyzers import HighLevelAnalyzer, AnalyzerFrame, StringSetting, Nu
 import struct
 
 
-HDR_DELIM = 0xCA11AB1E
-# HDR_DELIM = 0xAB1E
-FTR_DELIM = 0xba5eba11
+# HDR_DELIM = 0xCA11AB1E
+
+# We have to
+HDR_DELIM = 0xCA11
+# FTR_DELIM = 0xba5eba11
+FTR_DELIM = 0xBA11
 STATUS_DELIM = 0x33
 STATUS_NOT_NOACT = 0b11
-# STATUS_NOT_NOACT = 0b01
 STATUS_TX = 0b10
-# STATUS_TX = 0b1111
 STATUS_RX = 0b01
-# STATUS_RX = 0b1100
 STATUS_BAD = 0x70
 
 
@@ -37,6 +37,7 @@ class Hla(HighLevelAnalyzer):
     # hdr_delim_setting = StringSetting()
     # ftr_delim_setting = StringSetting()
     # sts_delim_setting = StringSetting()
+    window_length_setting = NumberSetting(label='Width', min_value = 0, max_value = 100)
     src_choice_setting = ChoicesSetting(label='Source Choice', choices=SRC_CHOICES.keys())
 
 
@@ -61,8 +62,8 @@ class Hla(HighLevelAnalyzer):
         Settings can be accessed using the same name used above.
         '''
         self.sts_delim = struct.pack('H', STATUS_DELIM)[0:1]
-        self.hdr_delim = struct.pack('I', HDR_DELIM)
-        self.ftr_delim = struct.pack('I', FTR_DELIM)
+        self.hdr_delim = struct.pack('>I', HDR_DELIM)[2:4]
+        self.ftr_delim = struct.pack('>I', FTR_DELIM)[2:4]
         self.sts_not_noact = struct.pack('b', STATUS_NOT_NOACT)[0]
         self.sts_tx = struct.pack('b', STATUS_TX)[0]
         self.sts_rx = struct.pack('b', STATUS_RX)[0]
@@ -112,15 +113,15 @@ class Hla(HighLevelAnalyzer):
         if self.src_choice_setting == "Host":
             data = frame.data['mosi']
 
+        len(data)
         decode_val = ""
-        print(len(data))
-        if data == self.hdr_delim:
+        if data[0:2] == self.hdr_delim:
             decode_val = "Header"
             labeled = True
             # self.end_frame()
             self.set_HDRSTATE()
-            self.start_pkt_frame()
-        elif data == self.ftr_delim:
+            # self.start_pkt_frame()
+        elif data[0:2] == self.ftr_delim:
             decode_val = "Footer"
             labeled = True
             self.set_FTRSTATE()
