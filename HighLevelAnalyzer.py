@@ -5,12 +5,12 @@ from saleae.analyzers import HighLevelAnalyzer, AnalyzerFrame, StringSetting, Nu
 import struct
 
 
-# HDR_DELIM = 0xCA11AB1E
+HDR_DELIM = 0xCA11AB1E
 
 # We have to
-HDR_DELIM = 0xCA11
-# FTR_DELIM = 0xba5eba11
-FTR_DELIM = 0xBA11
+# HDR_DELIM = 0xCA11
+FTR_DELIM = 0xba5eba11
+# FTR_DELIM = 0xBA11
 STATUS_DELIM = 0x33
 STATUS_NOT_NOACT = 0b11
 STATUS_TX = 0b10
@@ -37,7 +37,7 @@ class Hla(HighLevelAnalyzer):
     # hdr_delim_setting = StringSetting()
     # ftr_delim_setting = StringSetting()
     # sts_delim_setting = StringSetting()
-    window_length_setting = NumberSetting(label='Width', min_value = 0, max_value = 100)
+    # window_length_setting = NumberSetting(label='Width', min_value = 0, max_value = 100)
     src_choice_setting = ChoicesSetting(label='Source Choice', choices=SRC_CHOICES.keys())
 
 
@@ -62,12 +62,13 @@ class Hla(HighLevelAnalyzer):
         Settings can be accessed using the same name used above.
         '''
         self.sts_delim = struct.pack('H', STATUS_DELIM)[0:1]
-        self.hdr_delim = struct.pack('>I', HDR_DELIM)[2:4]
-        self.ftr_delim = struct.pack('>I', FTR_DELIM)[2:4]
+        self.hdr_delim = struct.pack('>I', HDR_DELIM)
+        self.ftr_delim = struct.pack('>I', FTR_DELIM)
         self.sts_not_noact = struct.pack('b', STATUS_NOT_NOACT)[0]
         self.sts_tx = struct.pack('b', STATUS_TX)[0]
         self.sts_rx = struct.pack('b', STATUS_RX)[0]
         self.sts_bad = struct.pack('b', STATUS_BAD)[0]
+        self.last_byte = None
 
         print("Status Delimiter: 0x", self.sts_delim.hex())
         print("Footer Delimiter: 0x", self.ftr_delim.hex())
@@ -93,6 +94,8 @@ class Hla(HighLevelAnalyzer):
     def end_frame(self):
         pass
 
+    def start_pkt_frame(self):
+        pass
 
     def decode(self, frame: AnalyzerFrame):
         # print("Settings:", hex(self.hdr_delim),hex(self.ftr_delim), hex(self.sts_delim))
@@ -113,15 +116,14 @@ class Hla(HighLevelAnalyzer):
         if self.src_choice_setting == "Host":
             data = frame.data['mosi']
 
-        len(data)
         decode_val = ""
-        if data[0:2] == self.hdr_delim:
+        if data[0:2] == self.hdr_delim[0:2]:
             decode_val = "Header"
             labeled = True
             # self.end_frame()
             self.set_HDRSTATE()
             # self.start_pkt_frame()
-        elif data[0:2] == self.ftr_delim:
+        elif data[0:2] == self.ftr_delim[2:4]:
             decode_val = "Footer"
             labeled = True
             self.set_FTRSTATE()
