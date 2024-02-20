@@ -15,7 +15,7 @@ STATUS_TX = 0b10
 # STATUS_TX = 0b1111
 STATUS_RX = 0b01
 # STATUS_RX = 0b1100
-
+STATUS_BAD = 0x70
 
 
 DISPLAY_FORMAT_CHOICES = {
@@ -27,7 +27,7 @@ SRC_CHOICES = {
     'Host': 'Host'
 }
 
-STATES = ['HDR_STATE', 'DATA_STATE', 'FTR_STATE', 'NO_STATE'] 
+STATES = ['HDR_STATE', 'DATA_STATE', 'FTR_STATE', 'NO_STATE', 'BAD_STATUS']
 
 
 
@@ -66,6 +66,7 @@ class Hla(HighLevelAnalyzer):
         self.sts_not_noact = struct.pack('b', STATUS_NOT_NOACT)[0]
         self.sts_tx = struct.pack('b', STATUS_TX)[0]
         self.sts_rx = struct.pack('b', STATUS_RX)[0]
+        self.sts_bad = struct.pack('b', STATUS_BAD)[0]
 
         print("Status Delimiter: 0x", self.sts_delim.hex())
         print("Footer Delimiter: 0x", self.ftr_delim.hex())
@@ -84,6 +85,9 @@ class Hla(HighLevelAnalyzer):
 
     def set_DATASTATE(self):
         self.curr_state = STATES[1]
+    
+    def set_BADSTATE(self):
+        self.curr_state = STATES[4]
 
     def end_frame(self):
         pass
@@ -109,14 +113,18 @@ class Hla(HighLevelAnalyzer):
             data = frame.data['mosi']
 
         decode_val = ""
+        print(len(data))
         if data == self.hdr_delim:
             decode_val = "Header"
+            labeled = True
             # self.end_frame()
             self.set_HDRSTATE()
-            # self.start_pkt_frame()
+            self.start_pkt_frame()
         elif data == self.ftr_delim:
             decode_val = "Footer"
+            labeled = True
             self.set_FTRSTATE()
+            self.end_frame()
         elif data[0:1] == self.sts_delim:
             decode_val = "Status"
             self.set_NOSTATE()
@@ -124,14 +132,18 @@ class Hla(HighLevelAnalyzer):
             if data[1] & self.sts_tx:
                 decode_val = decode_val + " (TX)"
                 labeled = True
-            if data[1] & self.sts_rx:
+            elif data[1] & self.sts_rx:
                 decode_val = decode_val + " (RX)"
                 labeled = True
-            if not(data[1] & self.sts_not_noact):
+            elif data[1] & self.sts_bad:
+                decode_val = decode_val + " (Bad Status)"
+                labeled = True
+            elif not(data[1] & self.sts_not_noact):
                 decode_val = decode_val + " (NoAct)"
                 labeled = True
-            if not labeled:
+            elif not labeled:
                 decode_val = decode_val + " (Unknown!)"
+                labeled = True
 
         # Return the data frame itself
         # return AnalyzerFrame('mytype', frame.start_time, frame.end_time, {
