@@ -36,14 +36,6 @@ SRC_CHOICES = {
     'Host': 'Host'
 }
 
-''' The possible modes to configure this analyzer to.
-    Status - shows the HDR, FTR, and different statuses in the data( !!! Most people should use this !!! )
-    Packet - shows the packet as a whole without breaking down the data inside '''
-MODE_CHOICES = {
-    'Status': 'Status',
-    'Packet': 'Packet'
-}
-
 ''' The different states that can be given to statuses '''
 STATES = ['HDR_STATE', 'DATA_STATE', 'FTR_STATE', 'NO_STATE', 'BAD_STATUS']
 
@@ -56,7 +48,6 @@ class Hla(HighLevelAnalyzer):
     # ftr_delim_setting = StringSetting()
     # sts_delim_setting = StringSetting()
     src_choice_setting = ChoicesSetting(label='Source Choice', choices=SRC_CHOICES.keys())
-    mode_choice_setting = ChoicesSetting(label = 'Mode', choices = MODE_CHOICES.keys())
 
 
     # Output types
@@ -142,9 +133,6 @@ class Hla(HighLevelAnalyzer):
                 start_time = self.last_frame[0].start_time
                 self.last_frame = [frame, '']
                 # checks settings to decide what needs to be returned
-                if (self.mode_choice_setting == 'Packet'):
-                    self.packet_start = start_time
-                    return
                 return AnalyzerFrame( 'dec', start_time, frame.end_time, {
                     'prefix':decode_val #, 'decoded': char.strip() 
                 })
@@ -159,21 +147,9 @@ class Hla(HighLevelAnalyzer):
                 start_time = self.last_frame[0].start_time
                 self.last_frame = [frame, '']
                 # checks settings to decide what needs to be returned
-                if (self.mode_choice_setting == 'Packet'):
-                    # This should never evaluate to false, but good to have
-                    if (self.packet_start != None):
-                        packet_start = self.packet_start
-                        return AnalyzerFrame( 'dec', packet_start, frame.end_time, {
-                            'prefix':"Packet"
-                            })
-                    else:
-                        return
-                else:
-                    return AnalyzerFrame( 'dec', start_time, frame.end_time, {
-                        'prefix':decode_val #, 'decoded': char.strip() 
+                return AnalyzerFrame( 'dec', start_time, frame.end_time, {
+                    'prefix':decode_val #, 'decoded': char.strip() 
                     })
-
-
 
         if data[0:2] == self.hdr_delim[2:4]:
             self.last_frame = [frame, 'H']
@@ -181,9 +157,6 @@ class Hla(HighLevelAnalyzer):
         elif data[0:2] == self.ftr_delim[2:4]:
             self.last_frame = [frame,'T']
         elif data[0:1] == self.sts_delim:
-            # Doesn't need to keep going if the mode is Packet
-            if (self.mode_choice_setting == 'Packet'):
-                return
             decode_val = "Status"
             self.set_NOSTATE()
             labeled = False
