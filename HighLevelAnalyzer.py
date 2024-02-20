@@ -68,7 +68,8 @@ class Hla(HighLevelAnalyzer):
         self.sts_tx = struct.pack('b', STATUS_TX)[0]
         self.sts_rx = struct.pack('b', STATUS_RX)[0]
         self.sts_bad = struct.pack('b', STATUS_BAD)[0]
-        self.last_byte = None
+        self.last_frame = [None, '']
+        self.packet_frame = [[False],[]]
 
         print("Status Delimiter: 0x", self.sts_delim.hex())
         print("Footer Delimiter: 0x", self.ftr_delim.hex())
@@ -106,7 +107,8 @@ class Hla(HighLevelAnalyzer):
 
         The type and data values in `frame` will depend on the input analyzer.
         '''
-
+        if (self.last_frame[0] == None):
+            self.last_frame[0] = frame
         if (frame.type != 'result'):
             self.set_NOSTATE()
             return
@@ -116,18 +118,38 @@ class Hla(HighLevelAnalyzer):
         if self.src_choice_setting == "Host":
             data = frame.data['mosi']
 
+
         decode_val = ""
-        if data[0:2] == self.hdr_delim[0:2]:
-            decode_val = "Header"
-            labeled = True
-            # self.end_frame()
-            self.set_HDRSTATE()
+
+        if self.last_frame[1] == 'H':
+            if data[0:2] == self.hdr_delim[0:2]:
+                decode_val = "Header"
+                self.set_HDRSTATE()
+                labeled = True
+                start_time = self.last_frame[0].start_time
+                self.last_frame = [frame, '']
+                return AnalyzerFrame( 'dec', start_time, frame.end_time, {
+                    'prefix':decode_val #, 'decoded': char.strip() 
+                })
+
+        if self.last_frame[1] == 'T':
+            if data[0:2] == self.ftr_delim[0:2]:
+                decode_val = "Footer"
+                labeled = True
+                self.set_FTRSTATE()
+                start_time = self.last_frame[0].start_time
+                self.last_frame = [frame, '']
+                return AnalyzerFrame( 'dec', start_time, frame.end_time, {
+                    'prefix':decode_val #, 'decoded': char.strip() 
+                })
+
+
+        if data[0:2] == self.hdr_delim[2:4]:
+            self.last_frame = [frame, 'H']
             # self.start_pkt_frame()
         elif data[0:2] == self.ftr_delim[2:4]:
-            decode_val = "Footer"
-            labeled = True
-            self.set_FTRSTATE()
-            self.end_frame()
+            self.last_frame = [frame,'T']
+
         elif data[0:1] == self.sts_delim:
             decode_val = "Status"
             self.set_NOSTATE()
