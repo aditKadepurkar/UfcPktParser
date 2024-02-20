@@ -1,0 +1,13 @@
+{
+  "name": "UfcPktParser",
+  "apiVersion": "1.0.0",
+  "author": "Elsa Forberger, Adit Kadepurkar",
+  "version": "0.0.1",
+  "description": "Test",
+  "extensions": {
+    "UfcPktParser": {
+      "type": "HighLevelAnalyzer",
+      "entryPoint": "HighLevelAnalyzer.Hla"
+    }
+  }
+}
