@@ -26,6 +26,10 @@ SRC_CHOICES = {
     'Peripheral': 'Peripheral',
     'Host': 'Host'
 }
+MODE_CHOICES = {
+    'Status': 'Status',
+    'Packet': 'Packet'
+}
 
 STATES = ['HDR_STATE', 'DATA_STATE', 'FTR_STATE', 'NO_STATE', 'BAD_STATUS']
 
@@ -39,7 +43,7 @@ class Hla(HighLevelAnalyzer):
     # sts_delim_setting = StringSetting()
     # window_length_setting = NumberSetting(label='Width', min_value = 0, max_value = 100)
     src_choice_setting = ChoicesSetting(label='Source Choice', choices=SRC_CHOICES.keys())
-
+    mode_choice_setting = ChoicesSetting(label = 'Mode', choices = MODE_CHOICES.keys())
 
 
     # An optional list of types this analyzer produces, providing a way to customize the way frames are displayed in Logic 2.
@@ -53,6 +57,9 @@ class Hla(HighLevelAnalyzer):
         'dec': {
             'format': '{{data.prefix}}'
         },
+        'pack': {
+            'format': '{{data.prefix}}'
+        }
     }
 
     def __init__(self):
@@ -69,7 +76,7 @@ class Hla(HighLevelAnalyzer):
         self.sts_rx = struct.pack('b', STATUS_RX)[0]
         self.sts_bad = struct.pack('b', STATUS_BAD)[0]
         self.last_frame = [None, '']
-        self.packet_frame = [[False],[]]
+        self.packet_start = None
 
         print("Status Delimiter: 0x", self.sts_delim.hex())
         print("Footer Delimiter: 0x", self.ftr_delim.hex())
@@ -128,6 +135,9 @@ class Hla(HighLevelAnalyzer):
                 labeled = True
                 start_time = self.last_frame[0].start_time
                 self.last_frame = [frame, '']
+                if (self.mode_choice_setting == 'Packet'):
+                    self.packet_start = start_time
+                    return
                 return AnalyzerFrame( 'dec', start_time, frame.end_time, {
                     'prefix':decode_val #, 'decoded': char.strip() 
                 })
@@ -139,9 +149,19 @@ class Hla(HighLevelAnalyzer):
                 self.set_FTRSTATE()
                 start_time = self.last_frame[0].start_time
                 self.last_frame = [frame, '']
-                return AnalyzerFrame( 'dec', start_time, frame.end_time, {
-                    'prefix':decode_val #, 'decoded': char.strip() 
-                })
+                if (self.mode_choice_setting == 'Packet'):
+                    if (self.packet_start != None):    
+                        packet_start = self.packet_start
+                        return AnalyzerFrame( 'dec', packet_start, frame.end_time, {
+                            'prefix':"Packet"
+                            })
+                    else:
+                        return
+                else:
+                    return AnalyzerFrame( 'dec', start_time, frame.end_time, {
+                        'prefix':decode_val #, 'decoded': char.strip() 
+                    })
+
 
 
         if data[0:2] == self.hdr_delim[2:4]:
@@ -149,8 +169,9 @@ class Hla(HighLevelAnalyzer):
             # self.start_pkt_frame()
         elif data[0:2] == self.ftr_delim[2:4]:
             self.last_frame = [frame,'T']
-
         elif data[0:1] == self.sts_delim:
+            if (self.mode_choice_setting == 'Packet'):
+                return
             decode_val = "Status"
             self.set_NOSTATE()
             labeled = False
